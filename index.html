@@ -164,11 +164,11 @@
                 <div class="value green" id="latestEvent">WAITING</div>
             </div>
             <div class="card">
-                <h3>Vehicles Entered</h3>
+                <h3>Total Cars Inside</h3> <!-- Changed label -->
                 <div class="value green" id="totalIn">0</div>
             </div>
             <div class="card">
-                <h3>Vehicles Inside</h3>
+                <h3>Total Cars Exited</h3> <!-- Changed label -->
                 <div class="value red" id="totalInside">0</div>
             </div>
         </div>
@@ -193,12 +193,10 @@
     </div>
 
     <script>
-        // Your ThingSpeak Channel ID
         const channelID = "3560920"; 
 
         async function fetchRealData() {
             try {
-                // Fetch the latest 50 records
                 const response = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?results=50`, { mode: 'cors' });
                 const data = await response.json();
                 
@@ -214,44 +212,42 @@
                     return;
                 }
 
-                // Process data (newest first)
                 const feeds = data.feeds.reverse();
                 
-                // 1. Calculate Totals
+                // Calculate Totals
                 feeds.forEach(feed => {
                     if (feed.field2 === 'ENTRY') totalEntries++;
                     if (feed.field2 === 'EXIT') totalExits++;
                 });
 
-                // 2. Calculate Cars Inside
+                // Calculate Cars Inside
                 let carsInside = totalEntries - totalExits;
                 if (carsInside < 0) carsInside = 0;
 
-                // 3. Update the Top Cards
-                document.getElementById('totalIn').innerText = totalEntries;
-                document.getElementById('totalInside').innerText = carsInside;
+                // Update Cards
+                document.getElementById('totalIn').innerText = carsInside; // Shows Cars Inside
+                document.getElementById('totalInside').innerText = totalExits; // Shows Total Exits
 
-                // 4. Update Latest Event Card
+                // Update Latest Event Card
                 if (feeds[0]) {
                     if (feeds[0].field2 === 'ENTRY') {
                         latestEventCard.innerText = "CAR ENTERED";
                         latestEventCard.style.color = "var(--accent-green)";
                     } else if (feeds[0].field2 === 'EXIT') {
                         latestEventCard.innerText = "CAR EXITED";
-                        latestEventCard.style.color = "var(--accent-blue)";
+                        latestEventCard.style.color = "var(--accent-red)";
                     }
                 }
 
-                // 5. Build the Table
+                // Build Table
                 feeds.forEach((feed, index) => {
                     const plate = feed.field1 || 'UNKNOWN';
                     const event = feed.field2 || 'EVENT';
                     const time = new Date(feed.created_at).toLocaleString();
                     
-                    // Format the display text
                     let displayPlate = plate;
                     if (event === 'EXIT') {
-                        displayPlate = "EXITED"; // Matches your screenshot
+                        displayPlate = "EXITED";
                     }
 
                     table.innerHTML += `
@@ -266,11 +262,9 @@
 
             } catch (error) {
                 console.error("Error fetching data:", error);
-                document.getElementById('logTable').innerHTML = '<tr><td colspan="4" class="loading" style="color: #f87171;">Error connecting to database.</td></tr>';
             }
         }
 
-        // Fetch immediately and then every 5 seconds
         fetchRealData();
         setInterval(fetchRealData, 5000);
     </script>

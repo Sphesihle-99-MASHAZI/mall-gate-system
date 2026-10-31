@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mall Gate System Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #4ade80;
+            --accent-red: #f87171;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--card-bg);
+        }
+
+        header h1 {
+            color: var(--accent-blue);
+            font-size: 2.2rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* Status Cards */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+
+        .card h3 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .card .value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .value.blue { color: var(--accent-blue); }
+        .value.green { color: var(--accent-green); }
+        .value.red { color: var(--accent-red); }
+
+        /* Data Table */
+        .table-container {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+
+        .table-container h2 {
+            color: var(--accent-blue);
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .plate {
+            background-color: #fbbf24;
+            color: #000;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .status-badge.in {
+            background-color: rgba(74, 222, 128, 0.2);
+            color: var(--accent-green);
+        }
+
+        .status-badge.out {
+            background-color: rgba(248, 113, 113, 0.2);
+            color: var(--accent-red);
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🏬 Automatic Mall Gate</h1>
+            <p>Live Vehicle Logging & Monitoring System</p>
+        </header>
+
+        <!-- Live Counts -->
+        <div class="status-grid">
+            <div class="card">
+                <h3>Entrance Gate</h3>
+                <div class="value green" id="gateStatus">CLOSED</div>
+            </div>
+            <div class="card">
+                <h3>Vehicles Entered</h3>
+                <div class="value blue" id="totalIn">0</div>
+            </div>
+            <div class="card">
+                <h3>Vehicles Inside</h3>
+                <div class="value red" id="totalInside">0</div>
+            </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="table-container">
+            <h2>📋 Live Vehicle Entry Log</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Plate Number</th>
+                        <th>Date & Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="logTable">
+                    <tr><td colspan="4" class="loading">Connecting to cloud data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // YOUR THINGSPEAK CHANNEL ID IS HERE
+        // ==========================================
+        const channelID = "3560920"; 
+        
+        // Fetch the last 50 records
+        const results = 50; 
+
+        async function fetchRealData() {
+            try {
+                // Fetch data from ThingSpeak
+                const response = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?results=${results}`, { mode: 'cors' });
+                const data = await response.json();
+                
+                const table = document.getElementById('logTable');
+                const gate = document.getElementById('gateStatus');
+                
+                let insideCount = 0;
+                let totalEntries = 0;
+                table.innerHTML = '';
+
+                if (data.feeds.length === 0) {
+                    table.innerHTML = '<tr><td colspan="4" class="loading">No vehicles recorded yet. Waiting for ESP32 data...</td></tr>';
+                    return;
+                }
+
+                // Process data (newest first)
+                const feeds = data.feeds.reverse();
+                
+                // Count entries and vehicles inside
+                feeds.forEach(feed => {
+                    if (feed.field2 === 'ENTRY') {
+                        totalEntries++;
+                        // Check if there is a matching EXIT later in the list
+                        const hasExited = feeds.slice(0, feeds.indexOf(feed)).some(f => f.field2 === 'EXIT');
+                        if (!hasExited) insideCount++;
+                    }
+                });
+
+                document.getElementById('totalIn').innerText = totalEntries;
+                document.getElementById('totalInside').innerText = insideCount;
+
+                // Animate gate if the most recent event was an ENTRY
+                if (feeds[0] && feeds[0].field2 === 'ENTRY') {
+                    gate.innerText = "OPEN";
+                    gate.style.color = "#4ade80";
+                    setTimeout(() => {
+                        gate.innerText = "CLOSED";
+                        gate.style.color = "#f87171";
+                    }, 3000);
+                }
+
+                // Build the table rows
+                feeds.forEach((feed, index) => {
+                    const plate = feed.field1 || 'UNKNOWN';
+                    const event = feed.field2 || 'EVENT';
+                    const time = new Date(feed.created_at).toLocaleString();
+                    
+                    table.innerHTML += `
+                        <tr>
+                            <td>${feeds.length - index}</td>
+                            <td><span class="plate">${plate}</span></td>
+                            <td>${time}</td>
+                            <td><span class="status-badge ${event === 'ENTRY' ? 'in' : 'out'}">${event}</span></td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById('logTable').innerHTML = '<tr><td colspan="4" class="loading" style="color: #f87171;">Error connecting to database. Check your Channel ID.</td></tr>';
+            }
+        }
+
+        // Fetch data immediately when page loads
+        fetchRealData();
+        
+        // Fetch data every 5 seconds to keep it live
+        setInterval(fetchRealData, 5000);
+    </script>
+</body>
+</html>

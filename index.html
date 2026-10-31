@@ -33,7 +33,6 @@
             margin: 0 auto;
         }
 
-        /* Header */
         header {
             text-align: center;
             margin-bottom: 30px;
@@ -51,7 +50,6 @@
             margin-top: 5px;
         }
 
-        /* Status Cards */
         .status-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -83,7 +81,6 @@
         .value.green { color: var(--accent-green); }
         .value.red { color: var(--accent-red); }
 
-        /* Data Table */
         .table-container {
             background-color: var(--card-bg);
             padding: 20px;
@@ -143,7 +140,6 @@
             color: var(--accent-red);
         }
 
-        /* Loading State */
         .loading {
             text-align: center;
             color: var(--text-muted);
@@ -159,7 +155,6 @@
             <p>Live Vehicle Logging & Monitoring System</p>
         </header>
 
-        <!-- Live Counts -->
         <div class="status-grid">
             <div class="card">
                 <h3>Entrance Gate</h3>
@@ -175,7 +170,6 @@
             </div>
         </div>
 
-        <!-- Logs Table -->
         <div class="table-container">
             <h2>📋 Live Vehicle Entry Log</h2>
             <table>
@@ -195,9 +189,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // YOUR THINGSPEAK CHANNEL ID
-        // ==========================================
         const channelID = "3560920"; 
         const results = 50; 
 
@@ -221,7 +212,6 @@
                 // Process data (newest first)
                 const feeds = data.feeds.reverse();
                 
-                // Count entries and exits
                 feeds.forEach(feed => {
                     if (feed.field2 === 'ENTRY') {
                         totalEntries++;
@@ -230,14 +220,12 @@
                     }
                 });
 
-                // Calculate cars inside (Total Entries - Total Exits)
                 let carsInside = totalEntries - totalExits;
                 if (carsInside < 0) carsInside = 0;
 
                 document.getElementById('totalIn').innerText = totalEntries;
                 document.getElementById('totalInside').innerText = carsInside;
 
-                // Animate gate if the most recent event was an ENTRY
                 if (feeds[0] && feeds[0].field2 === 'ENTRY') {
                     gate.innerText = "OPEN";
                     gate.style.color = "#4ade80";
@@ -247,13 +235,12 @@
                     }, 3000);
                 }
 
-                // Build the table rows
                 feeds.forEach((feed, index) => {
-                    const plate = feed.field1 || 'UNKNOWN';
+                    // If the plate number is missing, show "UNKNOWN", but log it
+                    const plate = feed.field1 ? feed.field1 : 'UNKNOWN';
                     const event = feed.field2 || 'EVENT';
                     const time = new Date(feed.created_at).toLocaleString();
                     
-                    // If it's an exit, change the text for display
                     let displayPlate = plate;
                     if (event === 'EXIT') {
                         displayPlate = "VEHICLE LEFT";
@@ -275,10 +262,7 @@
             }
         }
 
-        // Fetch data immediately when page loads
         fetchRealData();
-        
-        // Fetch data every 5 seconds to keep it live
         setInterval(fetchRealData, 5000);
     </script>
 </body>

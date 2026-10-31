@@ -75,7 +75,7 @@
         }
 
         .card .value {
-            font-size: 1.5rem;
+            font-size: 2rem;
             font-weight: bold;
         }
 
@@ -162,12 +162,12 @@
         <!-- Live Counts -->
         <div class="status-grid">
             <div class="card">
-                <h3>Latest Gate Event</h3>
-                <div class="value blue" id="gateStatus">WAITING...</div>
+                <h3>Entrance Gate</h3>
+                <div class="value green" id="gateStatus">CLOSED</div>
             </div>
             <div class="card">
                 <h3>Vehicles Entered</h3>
-                <div class="value green" id="totalIn">0</div>
+                <div class="value blue" id="totalIn">0</div>
             </div>
             <div class="card">
                 <h3>Vehicles Inside</h3>
@@ -196,7 +196,7 @@
 
     <script>
         // ==========================================
-        // YOUR THINGSPEAK CHANNEL ID IS HERE
+        // YOUR THINGSPEAK CHANNEL ID
         // ==========================================
         const channelID = "3560920"; 
         const results = 50; 
@@ -209,41 +209,42 @@
                 const table = document.getElementById('logTable');
                 const gate = document.getElementById('gateStatus');
                 
-                let insideCount = 0;
                 let totalEntries = 0;
+                let totalExits = 0;
                 table.innerHTML = '';
 
                 if (data.feeds.length === 0) {
                     table.innerHTML = '<tr><td colspan="4" class="loading">No vehicles recorded yet. Waiting for ESP32 data...</td></tr>';
-                    gate.innerText = "WAITING";
-                    gate.className = "value blue";
                     return;
                 }
 
                 // Process data (newest first)
                 const feeds = data.feeds.reverse();
                 
-                // Count entries and vehicles inside
+                // Count entries and exits
                 feeds.forEach(feed => {
                     if (feed.field2 === 'ENTRY') {
                         totalEntries++;
-                        const hasExited = feeds.slice(0, feeds.indexOf(feed)).some(f => f.field2 === 'EXIT');
-                        if (!hasExited) insideCount++;
+                    } else if (feed.field2 === 'EXIT') {
+                        totalExits++;
                     }
                 });
 
-                document.getElementById('totalIn').innerText = totalEntries;
-                document.getElementById('totalInside').innerText = insideCount;
+                // Calculate cars inside (Total Entries - Total Exits)
+                let carsInside = totalEntries - totalExits;
+                if (carsInside < 0) carsInside = 0;
 
-                // Update Gate Status based on the LATEST event (feeds[0] is the newest)
-                if (feeds[0]) {
-                    if (feeds[0].field2 === 'ENTRY') {
-                        gate.innerText = "CAR ENTERED";
-                        gate.className = "value green";
-                    } else if (feeds[0].field2 === 'EXIT') {
-                        gate.innerText = "CAR EXITED";
-                        gate.className = "value red";
-                    }
+                document.getElementById('totalIn').innerText = totalEntries;
+                document.getElementById('totalInside').innerText = carsInside;
+
+                // Animate gate if the most recent event was an ENTRY
+                if (feeds[0] && feeds[0].field2 === 'ENTRY') {
+                    gate.innerText = "OPEN";
+                    gate.style.color = "#4ade80";
+                    setTimeout(() => {
+                        gate.innerText = "CLOSED";
+                        gate.style.color = "#f87171";
+                    }, 3000);
                 }
 
                 // Build the table rows
@@ -252,10 +253,16 @@
                     const event = feed.field2 || 'EVENT';
                     const time = new Date(feed.created_at).toLocaleString();
                     
+                    // If it's an exit, change the text for display
+                    let displayPlate = plate;
+                    if (event === 'EXIT') {
+                        displayPlate = "VEHICLE LEFT";
+                    }
+
                     table.innerHTML += `
                         <tr>
                             <td>${feeds.length - index}</td>
-                            <td><span class="plate">${plate}</span></td>
+                            <td><span class="plate">${displayPlate}</span></td>
                             <td>${time}</td>
                             <td><span class="status-badge ${event === 'ENTRY' ? 'in' : 'out'}">${event}</span></td>
                         </tr>
@@ -264,7 +271,7 @@
 
             } catch (error) {
                 console.error("Error fetching data:", error);
-                document.getElementById('logTable').innerHTML = '<tr><td colspan="4" class="loading" style="color: #f87171;">Error connecting to database. Check your Channel ID or Sharing Settings.</td></tr>';
+                document.getElementById('logTable').innerHTML = '<tr><td colspan="4" class="loading" style="color: #f87171;">Error connecting to database. Check your Channel ID.</td></tr>';
             }
         }
 
